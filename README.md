@@ -1,49 +1,62 @@
-# Houston Housing AI Agent
+# Arbitra AI Agent
 
-An intelligent AI agent powering the Houston Housing ecosystem.
+An intelligent AI agent powering the Arbitra on-chain arbitration and escrow protocol.
 
-The Houston Housing AI Agent helps landlords, tenants, and property agents automate property management, rental discovery, payment coordination, and housing-related decision making through natural language interactions.
+The Arbitra AI Agent enables parties in two-sided agreements to automate escrow coordination, dispute resolution, contract analysis, and settlement workflows through natural language interactions.
 
-Built for the Houston Housing platform and designed to integrate with the Stellar blockchain, the agent combines conversational AI, property intelligence, and blockchain automation into a single assistant.
+Built for the Arbitra platform and designed to integrate with the Stellar blockchain and Soroban smart contracts, the agent combines conversational AI, arbitration intelligence, contract automation, and blockchain integration into a single assistant that works across verticals — rentals, freelance agreements, trade finance, insurance claims, and more.
 
 ---
 
 ## Features
 
-### Property Discovery
+### Escrow & Agreement Coordination
 
-* Search available rental properties
-* Filter by location, budget, amenities, and property type
-* Recommend listings based on user preferences
+- Initiate and track escrow arrangements for any two-party agreement
+- Coordinate multi-party deposits (security deposits, milestone payments, trade escrows)
+- Guide through conditional release workflows
+- Verify transaction status on-chain
+- Support platform and referral fee splits
+- Facilitate multi-currency settlements via Stellar DEX
+- Automate recurring payment obligations
 
-### Landlord Assistant
+### Dispute Resolution Assistant
 
-* Generate property descriptions
-* Suggest rental pricing
-* Analyze listing quality
-* Assist with tenant communication
+- Guide arbiters through case review
+- Summarize dispute evidence and claims
+- Suggest fair rulings based on precedent and similar cases
+- Track arbitration timelines and appeals
+- Automate case documentation
+- Handle timeout-based auto-resolutions
+- Support weighted voting for arbiter panels
 
-### Tenant Assistant
+### Contract Intelligence
 
-* Find suitable rental properties
-* Compare listings
-* Estimate affordability
-* Receive move-in recommendations
+- Analyze agreement terms and conditions
+- Identify potential dispute triggers
+- Suggest fair milestone criteria
+- Generate compliance-friendly agreement templates
+- Extract key obligations from natural language agreements
+- Recommend arbitration clauses
 
-### Agent Assistant
+### Agreement Discovery (Rental Reference Implementation)
 
-* Manage property portfolios
-* Generate marketing content
-* Track commissions
-* Automate follow-ups
+- Search available rental properties
+- Filter by location, budget, amenities, and property type
+- Recommend listings based on user preferences
+- AI-assisted property description generation
+- Pricing suggestions based on market data
+- Track rental applications and agreements
 
 ### Blockchain Integration
 
-* Initiate Stellar payment requests
-* Verify rental transactions
-* Monitor rent payment status
-* Support escrow workflows
-* Facilitate multi-currency settlements
+- Initiate Stellar payment requests via escrow contracts
+- Verify transactions on-chain in real-time
+- Monitor escrow release conditions
+- Support trustless 2-of-3 multi-sig workflows
+- Enable multi-currency settlement through Stellar DEX
+- Interact with Soroban smart contracts (escrow, dispute_resolution, payment, etc.)
+- Coordinate with Stellar anchors for fiat on/off-ramps
 
 ---
 
@@ -63,22 +76,30 @@ AI Agent Interface
  ▼
 Agent Services
  │
- ├── Property Search
+ ├── Escrow Coordinator
+ ├── Dispute Resolution Assistant
+ ├── Contract Intelligence Engine
+ ├── Agreement Discovery (Rental Reference)
  ├── Pricing Engine
- ├── Listing Generator
- ├── Tenant Matching
- ├── Payment Assistant
+ ├── Party Matching & Recommendations
  │
  ▼
-Houston Housing API
+Arbitra Backend API
  │
- ├── Property Listings
- ├── User Profiles
- ├── Rental Agreements
- ├── Notifications
+ ├── Agreement Registry & Indexer
+ ├── User Profiles & Verification
+ ├── Compliance & Moderation
+ ├── Notifications & Messaging
+ ├── Case Management
  │
  ▼
-Stellar Network
+Stellar Network + Soroban Contracts
+ │
+ ├── escrow (generic 2-of-3 multi-sig)
+ ├── dispute_resolution (case-agnostic arbitration)
+ ├── payment, agent_registry, rent_obligation
+ ├── Asset Management & DEX
+ ├── Anchor Integration
 ```
 
 ---
@@ -90,32 +111,50 @@ Stellar Network
 Examples:
 
 ```text
+Create an escrow for a $5000 freelance milestone payment.
+
+Show me the status of my escrow agreement on-chain.
+
+I need to file a dispute for a failed delivery.
+
+Help me understand this arbitration case.
+
+What rent price should I charge for this 3BR house?
+
 Find me a 2-bedroom apartment under $800/month.
 
-Show houses near Lekki with parking.
+How do I release funds from this escrow?
 
-Generate a property description for my apartment.
+What's the current ruling in my dispute case?
 
-What rent price should I charge for this property?
+Generate an agreement template for a freelance contract.
 
-Has my tenant paid rent this month?
+How do I split agent commissions through Arbitra?
+
+What are the release conditions for this escrow?
+
+Show me similar arbitration precedents for this case.
 ```
 
 ### AI-Powered Recommendations
 
-* Rental pricing suggestions
-* Property scoring
-* Tenant-property matching
-* Listing optimization
-* Neighborhood insights
+- Escrow term suggestions
+- Dispute resolution strategies
+- Fair settlement amounts
+- Agreement structure optimization
+- Risk assessment for contract terms
+- Rental pricing suggestions (reference implementation)
+- Party matching and reputation scoring
 
 ### Automation
 
-* Property onboarding
-* Listing creation
-* Payment reminders
-* Tenant notifications
-* Rental workflow assistance
+- Escrow initiation and monitoring
+- Payment condition tracking
+- Dispute case filing
+- Evidence collection and summarization
+- Automated notifications
+- Recurring payment obligations
+- Multi-party settlement coordination
 
 ---
 
@@ -123,34 +162,34 @@ Has my tenant paid rent this month?
 
 ### AI
 
-* OpenAI
-* Anthropic
-* LangChain
-* Model Context Protocol (MCP)
+- OpenAI
+- Anthropic
+- LangChain
+- Model Context Protocol (MCP)
 
 ### Backend
 
-* Node.js
-* TypeScript
-* Express
+- Node.js
+- TypeScript
+- Express
 
 ### Database
 
-* PostgreSQL
-* Redis
+- PostgreSQL
+- Redis
 
 ### Blockchain
 
-* Stellar SDK
-* Horizon API
-* Soroban Smart Contracts
+- Stellar SDK
+- Horizon API
+- Soroban Smart Contracts
 
 ---
 
 ## Installation
 
 ```bash
-git clone https://github.com/houston-housing/ai-agent.git
+git clone https://github.com/arbitra/ai-agent.git
 
 cd ai-agent
 
@@ -199,26 +238,36 @@ Request:
 
 ```json
 {
-  "message": "Find apartments under $1000"
+  "message": "Create an escrow for a $3000 security deposit"
 }
 ```
 
-### Property Recommendations
+### Escrow Management
+
+```http
+POST /api/escrow
+GET /api/escrow/:id
+POST /api/escrow/:id/release
+```
+
+### Dispute Resolution
+
+```http
+POST /api/disputes
+GET /api/disputes/:id
+POST /api/disputes/:id/evidence
+```
+
+### Agreement Recommendations
 
 ```http
 POST /api/recommendations
 ```
 
-### Pricing Suggestions
+### Contract Analysis
 
 ```http
-POST /api/pricing
-```
-
-### Payment Assistant
-
-```http
-POST /api/payments
+POST /api/contracts/analyze
 ```
 
 ---
@@ -227,41 +276,46 @@ POST /api/payments
 
 ### Phase 1
 
-* Conversational assistant
-* Property search
-* Listing generation
+- Conversational assistant
+- Escrow coordination
+- Basic dispute filing
+- Rental marketplace (reference implementation)
 
 ### Phase 2
 
-* Tenant matching
-* Pricing intelligence
-* Agent workflow automation
+- Contract intelligence and analysis
+- Advanced dispute resolution workflows
+- Multi-party settlement automation
+- Arbiter reputation system
 
 ### Phase 3
 
-* Autonomous payment coordination
-* Rental agreement analysis
-* On-chain transaction automation
+- Autonomous escrow and payment coordination
+- Cross-contract agreement templates
+- On-chain transaction automation
+- Appeal handling and precedent matching
 
 ### Phase 4
 
-* Multi-agent architecture
-* Property marketplace intelligence
-* Cross-border rent settlement
+- Multi-agent architecture for specialized verticals
+- Cross-border settlement optimization
+- Anchor integration for fiat on/off-ramps
+- Protocol-level analytics and insights
 
 ---
 
 ## Open Source
 
-Houston Housing AI Agent is fully open source.
+Arbitra AI Agent is fully open source.
 
 Contributions are welcome from:
 
-* AI Engineers
-* Blockchain Developers
-* Stellar Ecosystem Contributors
-* Product Designers
-* Researchers
+- AI Engineers
+- Blockchain Developers
+- Stellar Ecosystem Contributors
+- Smart Contract Auditors
+- Product Designers
+- Legal and Compliance Researchers
 
 ---
 
@@ -271,6 +325,8 @@ MIT License
 
 ---
 
-## Houston Housing
+## Arbitra
 
-Building open financial infrastructure for housing using AI and Stellar.
+Building open trust infrastructure for two-party agreements using AI and Stellar.
+
+**Generic escrow. Case-agnostic arbitration. Built for any vertical.**
