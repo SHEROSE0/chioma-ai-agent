@@ -1,332 +1,177 @@
-# Arbitra AI Agent
+# Chioma AI Agent
 
-An intelligent AI agent powering the Arbitra on-chain arbitration and escrow protocol.
+An AI agent service for **[Chioma](https://t.me/chiomagroup)** — the open-source, Stellar-based rental platform connecting landlords, house agents, and tenants.
 
-The Arbitra AI Agent enables parties in two-sided agreements to automate escrow coordination, dispute resolution, contract analysis, and settlement workflows through natural language interactions.
-
-Built for the Arbitra platform and designed to integrate with the Stellar blockchain and Soroban smart contracts, the agent combines conversational AI, arbitration intelligence, contract automation, and blockchain integration into a single assistant that works across verticals — rentals, freelance agreements, trade finance, insurance claims, and more.
+> **Naming note:** Chioma already uses the word "agent" for a human marketplace role — a real-estate agent who lists properties and earns commissions, tracked on-chain by the `agent_registry` Soroban contract and onboarded via `frontend/lib/agent-onboarding.ts` in the main repo. **This project is a different thing.** "Chioma AI Agent" is a software agent (an LLM-driven assistant + automation layer) that serves landlords, tenants, *and* human agents — it does not replace or model the human-agent role. Keep this distinction explicit anywhere the two could be confused.
 
 ---
 
-## Features
+## Why this exists
 
-### Escrow & Agreement Coordination
+The main `chioma` monorepo (`backend/` NestJS, `frontend/` Next.js, `contract/` Soroban) already has scattered, minimal AI touchpoints:
 
-- Initiate and track escrow arrangements for any two-party agreement
-- Coordinate multi-party deposits (security deposits, milestone payments, trade escrows)
-- Guide through conditional release workflows
-- Verify transaction status on-chain
-- Support platform and referral fee splits
-- Facilitate multi-currency settlements via Stellar DEX
-- Automate recurring payment obligations
+| Existing piece | Location in `chioma` | What it actually does |
+|---|---|---|
+| Listing wizard AI helpers | `backend/src/modules/properties/property-wizard.controller.ts` | Three endpoints (`pricing-suggestion`, `description-suggestion`, `completeness-score`) that each build a prompt and call OpenAI `gpt-4o` directly via `axios` in a private `callAI()` method. No abstraction, no retries, fails silently to `{ available: false }`. |
+| Matching / recommendations | `backend/src/modules/ai/matching-ai.service.ts` | Deterministic rule-based scoring (not ML) over `UserPreferences` (`user_ai_preferences` table) and property data. Produces match %, reason codes, cold-start fallback. |
+| Fraud scoring | `backend/src/modules/fraud/*`, `backend/ai-services/fraud/` | An offline-trained XGBoost model exported as a static JSON weights file (`fraud-model.json`), applied at runtime as a plain weighted sum — not live inference. |
 
-### Dispute Resolution Assistant
+There is **no existing architecture doc or service in `chioma` that unifies these into a conversational agent** — no chat interface, no tool-calling layer, no memory, no cross-domain reasoning. `chioma-agent` is that missing piece: a standalone service that talks to the `chioma` backend's REST API (and, where appropriate, Stellar/Soroban directly) to give landlords, tenants, and agents one natural-language front door across listings, payments, escrow, disputes, and trust signals.
 
-- Guide arbiters through case review
-- Summarize dispute evidence and claims
-- Suggest fair rulings based on precedent and similar cases
-- Track arbitration timelines and appeals
-- Automate case documentation
-- Handle timeout-based auto-resolutions
-- Support weighted voting for arbiter panels
+It is a **sibling service**, not a fork — it consumes `chioma`'s backend API rather than duplicating its database or business logic.
 
-### Contract Intelligence
+---
 
-- Analyze agreement terms and conditions
-- Identify potential dispute triggers
-- Suggest fair milestone criteria
-- Generate compliance-friendly agreement templates
-- Extract key obligations from natural language agreements
-- Recommend arbitration clauses
+## Responsibilities
 
-### Agreement Discovery (Rental Reference Implementation)
+### In scope
 
-- Search available rental properties
-- Filter by location, budget, amenities, and property type
-- Recommend listings based on user preferences
-- AI-assisted property description generation
-- Pricing suggestions based on market data
-- Track rental applications and agreements
+1. **Conversational interface** — a single chat/assistant surface for landlords, tenants, and house agents to ask questions and trigger actions in natural language.
+2. **Property discovery & recommendations** — wraps and extends `matching-ai.service.ts` / `user_ai_preferences`: conversational search, comparison, "why was this recommended" explanations.
+3. **Landlord listing assistant** — supersedes the ad-hoc `callAI()` in `property-wizard.controller.ts` with a proper agent-backed pricing/description/completeness-scoring flow (provider abstraction, retries, structured output, evaluation).
+4. **Tenant assistant** — affordability estimates, move-in guidance, application/lease status lookups, comparing shortlisted properties.
+5. **Payments & escrow assistant** — explains and checks status of rent payments, security-deposit escrow, and tokenized rent obligations by reading from the `payment`, `escrow`, and `rent_obligation` Soroban contracts (via the backend's `stellar` module or Horizon directly) — read/status-oriented, not a replacement for the contracts' own execution logic.
+6. **Dispute resolution assistant** — helps parties and arbiters interacting with the `dispute_resolution` contract: summarizes evidence/claims, tracks timelines, drafts filings. Does not rule on disputes itself.
+7. **Trust & fraud signal surfacing** — consumes (does not retrain or replace) the `fraud` module's alerts/scores to caveat recommendations or flag anomalies in conversation.
+8. **Notifications & follow-ups** — proactive nudges (rent due, draft expiring in 30 days, dispute deadline approaching) by polling/subscribing to backend events.
 
-### Blockchain Integration
+### Explicitly out of scope
 
-- Initiate Stellar payment requests via escrow contracts
-- Verify transactions on-chain in real-time
-- Monitor escrow release conditions
-- Support trustless 2-of-3 multi-sig workflows
-- Enable multi-currency settlement through Stellar DEX
-- Interact with Soroban smart contracts (escrow, dispute_resolution, payment, etc.)
-- Coordinate with Stellar anchors for fiat on/off-ramps
+- **Human agent onboarding, verification, commissions, or reputation** — owned entirely by `agent_registry` (contract) and `frontend/lib/agent-onboarding.ts`. This project must never conflate "AI agent" with that role.
+- **Fraud model training** — owned by `backend/ai-services/fraud/train_model.py`; this project only *reads* fraud signals.
+- **On-chain contract logic / consensus** — owned by the Soroban contracts in `chioma/contract`; this project calls them, it doesn't reimplement them.
+- **Core CRUD for listings, users, KYC, messaging** — owned by the respective `chioma` backend modules; this project is a client of those APIs.
 
 ---
 
 ## Architecture
 
 ```text
-User
- │
- ▼
-AI Agent Interface
- │
- ├── Conversation Engine
- ├── Context Manager
- ├── Memory Layer
- ├── Tool Calling Layer
- │
- ▼
-Agent Services
- │
- ├── Escrow Coordinator
- ├── Dispute Resolution Assistant
- ├── Contract Intelligence Engine
- ├── Agreement Discovery (Rental Reference)
- ├── Pricing Engine
- ├── Party Matching & Recommendations
- │
- ▼
-Arbitra Backend API
- │
- ├── Agreement Registry & Indexer
- ├── User Profiles & Verification
- ├── Compliance & Moderation
- ├── Notifications & Messaging
- ├── Case Management
- │
- ▼
-Stellar Network + Soroban Contracts
- │
- ├── escrow (generic 2-of-3 multi-sig)
- ├── dispute_resolution (case-agnostic arbitration)
- ├── payment, agent_registry, rent_obligation
- ├── Asset Management & DEX
- ├── Anchor Integration
+Landlord / Tenant / House Agent
+            │
+            ▼
+   Chioma AI Agent (this repo)
+            │
+   ┌────────┼─────────────────────────┐
+   │        │                         │
+   ▼        ▼                         ▼
+Conversation   Tool-Calling Layer      Memory / Session Store
+  Engine       │                      (conversation state, prefs cache)
+  (LLM         ├── Listings tool  ──► chioma backend: /properties, /ai/matching
+  provider     ├── Wizard tool    ──► chioma backend: /property-listings/wizard/*
+  abstraction) ├── Payments tool  ──► chioma backend: /payments, /rent, Stellar Horizon
+               ├── Escrow tool    ──► escrow contract (via chioma backend "stellar" module)
+               ├── Dispute tool   ──► chioma backend: /disputes, dispute_resolution contract
+               ├── Fraud tool     ──► chioma backend: /fraud (read-only)
+               └── Notify tool    ──► chioma backend: /notifications
+                                              │
+                                              ▼
+                                    Chioma Backend API (NestJS)
+                                              │
+                                              ▼
+                                    Stellar Network + Soroban Contracts
 ```
 
 ---
 
-## Capabilities
-
-### Natural Language Queries
-
-Examples:
+## Relationship to the `chioma` monorepo
 
 ```text
-Create an escrow for a $5000 freelance milestone payment.
-
-Show me the status of my escrow agreement on-chain.
-
-I need to file a dispute for a failed delivery.
-
-Help me understand this arbitration case.
-
-What rent price should I charge for this 3BR house?
-
-Find me a 2-bedroom apartment under $800/month.
-
-How do I release funds from this escrow?
-
-What's the current ruling in my dispute case?
-
-Generate an agreement template for a freelance contract.
-
-How do I split agent commissions through Arbitra?
-
-What are the release conditions for this escrow?
-
-Show me similar arbitration precedents for this case.
+personal/projects/
+├── chioma/           # product monorepo: backend (NestJS), frontend (Next.js), contract (Soroban/Rust)
+└── chioma-agent/      # this repo — standalone AI agent service, consumes chioma's backend API
 ```
 
-### AI-Powered Recommendations
-
-- Escrow term suggestions
-- Dispute resolution strategies
-- Fair settlement amounts
-- Agreement structure optimization
-- Risk assessment for contract terms
-- Rental pricing suggestions (reference implementation)
-- Party matching and reputation scoring
-
-### Automation
-
-- Escrow initiation and monitoring
-- Payment condition tracking
-- Dispute case filing
-- Evidence collection and summarization
-- Automated notifications
-- Recurring payment obligations
-- Multi-party settlement coordination
+`chioma-agent` does not import `chioma` code directly. It integrates over HTTP against the backend's REST API (see `backend/openapi.json` in the main repo) and, for read-heavy status checks, may query Stellar Horizon directly using the same network config (`STELLAR_NETWORK`, `STELLAR_HORIZON_URL`) as `chioma/frontend`.
 
 ---
 
-## Tech Stack
+## Proposed file structure
 
-### AI
+The repo currently only has `README.md`, `LICENSE`, and a NestJS-flavored `.gitignore` — no code yet. Proposed layout, mirroring the conventions already used in `chioma/backend`:
 
-- OpenAI
-- Anthropic
-- LangChain
-- Model Context Protocol (MCP)
-
-### Backend
-
-- Node.js
-- TypeScript
-- Express
-
-### Database
-
-- PostgreSQL
-- Redis
-
-### Blockchain
-
-- Stellar SDK
-- Horizon API
-- Soroban Smart Contracts
-
----
-
-## Installation
-
-```bash
-git clone https://github.com/arbitra/ai-agent.git
-
-cd ai-agent
-
-npm install
+```text
+chioma-agent/
+├── src/
+│   ├── main.ts                     # app bootstrap
+│   ├── app.module.ts
+│   ├── agent/                      # core agent runtime
+│   │   ├── conversation/           # conversation engine, prompt templates, turn handling
+│   │   ├── memory/                 # session/context store (Redis-backed)
+│   │   └── llm/                    # provider abstraction (OpenAI, Anthropic), swappable
+│   ├── tools/                      # one "tool" per external capability the agent can call
+│   │   ├── listings.tool.ts        # -> chioma backend /properties, /ai/matching
+│   │   ├── wizard.tool.ts          # -> chioma backend /property-listings/wizard/*
+│   │   ├── payments.tool.ts        # -> chioma backend /payments, /rent
+│   │   ├── escrow.tool.ts          # -> escrow contract via chioma backend / Horizon
+│   │   ├── disputes.tool.ts        # -> chioma backend /disputes
+│   │   ├── fraud.tool.ts           # -> chioma backend /fraud (read-only)
+│   │   └── notifications.tool.ts   # -> chioma backend /notifications
+│   ├── integrations/
+│   │   ├── chioma-api/             # typed REST client for the chioma backend
+│   │   └── stellar/                # Horizon/Soroban read helpers
+│   ├── modules/
+│   │   ├── chat/                   # chat/assistant HTTP + WebSocket endpoints
+│   │   └── health/
+│   ├── config/                     # env config, per-environment overrides
+│   └── common/                     # guards, interceptors, DTOs, filters
+├── test/                           # e2e specs (jest, matching chioma/backend conventions)
+├── docs/
+│   └── architecture/               # ADRs for this service
+├── .env.example
+├── Dockerfile
+├── docker-compose.yml
+├── nest-cli.json
+├── package.json
+├── pnpm-lock.yaml
+├── tsconfig.json
+└── README.md
 ```
 
 ---
 
-## Environment Variables
+## Tech stack (proposed, matching `chioma`'s conventions)
 
-```env
-PORT=3000
-
-OPENAI_API_KEY=
-
-DATABASE_URL=
-
-REDIS_URL=
-
-STELLAR_NETWORK=testnet
-
-STELLAR_HORIZON_URL=https://horizon-testnet.stellar.org
-
-STELLAR_SECRET_KEY=
-```
-
----
-
-## Running Locally
-
-```bash
-npm run dev
-```
-
----
-
-## API Endpoints
-
-### Chat
-
-```http
-POST /api/chat
-```
-
-Request:
-
-```json
-{
-  "message": "Create an escrow for a $3000 security deposit"
-}
-```
-
-### Escrow Management
-
-```http
-POST /api/escrow
-GET /api/escrow/:id
-POST /api/escrow/:id/release
-```
-
-### Dispute Resolution
-
-```http
-POST /api/disputes
-GET /api/disputes/:id
-POST /api/disputes/:id/evidence
-```
-
-### Agreement Recommendations
-
-```http
-POST /api/recommendations
-```
-
-### Contract Analysis
-
-```http
-POST /api/contracts/analyze
-```
+- **Runtime:** Node.js + TypeScript, NestJS (consistent with `chioma/backend`; `.gitignore` already assumes Nest)
+- **LLM providers:** OpenAI (drop-in replacement for the existing `callAI()` calls) with an abstraction layer to add Anthropic/others
+- **Session/memory store:** Redis
+- **Package manager:** pnpm (matches both `chioma/backend` and `chioma/frontend`)
+- **Blockchain:** Stellar SDK / Horizon, read access to the same Soroban contracts as `chioma/contract`
 
 ---
 
 ## Roadmap
 
-### Phase 1
+**Phase 1 — Assistant core**
+Conversational interface, listings discovery/recommendations, replace the inline `callAI()` wizard helpers with the agent's own pricing/description/completeness tools.
 
-- Conversational assistant
-- Escrow coordination
-- Basic dispute filing
-- Rental marketplace (reference implementation)
+**Phase 2 — Financial & dispute awareness**
+Payment/escrow status lookups, rent-obligation NFT explanations, dispute summarization and filing assistance.
 
-### Phase 2
+**Phase 3 — Proactive automation**
+Notifications/reminders (rent due, draft expiry, dispute deadlines), fraud-signal-aware caveats in conversation.
 
-- Contract intelligence and analysis
-- Advanced dispute resolution workflows
-- Multi-party settlement automation
-- Arbiter reputation system
-
-### Phase 3
-
-- Autonomous escrow and payment coordination
-- Cross-contract agreement templates
-- On-chain transaction automation
-- Appeal handling and precedent matching
-
-### Phase 4
-
-- Multi-agent architecture for specialized verticals
-- Cross-border settlement optimization
-- Anchor integration for fiat on/off-ramps
-- Protocol-level analytics and insights
+**Phase 4 — Multi-surface**
+Embed the assistant in `chioma/frontend` (landlord, tenant, and agent dashboards) and expose it via API for third-party/developer-portal use.
 
 ---
 
-## Open Source
+## Getting started
 
-Arbitra AI Agent is fully open source.
+Not yet scaffolded. Once the NestJS app exists:
 
-Contributions are welcome from:
+```bash
+git clone <this-repo>
+cd chioma-agent
+pnpm install
+cp .env.example .env   # set OPENAI_API_KEY, CHIOMA_API_URL, REDIS_URL, STELLAR_NETWORK, STELLAR_HORIZON_URL
+pnpm run start:dev
+```
 
-- AI Engineers
-- Blockchain Developers
-- Stellar Ecosystem Contributors
-- Smart Contract Auditors
-- Product Designers
-- Legal and Compliance Researchers
+## Contributing
 
----
+Follow the same end-of-task discipline as the main `chioma` repo: type-check, lint, build, and test before considering a task done (see `chioma/claude.md` for the exact commands once this repo's `package.json` exists).
 
 ## License
 
-MIT License
-
----
-
-## Arbitra
-
-Building open trust infrastructure for two-party agreements using AI and Stellar.
-
-**Generic escrow. Case-agnostic arbitration. Built for any vertical.**
+MIT — see [LICENSE](LICENSE).
