@@ -1,0 +1,14 @@
+services:
+  agent:
+    build: .
+    ports:
+      - '3100:3100'
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
