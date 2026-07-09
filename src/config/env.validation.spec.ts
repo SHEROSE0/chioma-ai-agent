@@ -1,0 +1,62 @@
+import { validateEnvironment } from './env.validation';
+
+describe('validateEnvironment', () => {
+  const baseEnv = {
+    ANTHROPIC_API_KEY: 'key',
+    CHIOMA_API_URL: 'http://localhost:3000',
+  };
+
+  it('passes with the minimum required anthropic config', () => {
+    expect(() => validateEnvironment(baseEnv)).not.toThrow();
+  });
+
+  it('rejects an unknown LLM_PROVIDER', () => {
+    expect(() =>
+      validateEnvironment({ ...baseEnv, LLM_PROVIDER: 'not-a-provider' }),
+    ).toThrow(/LLM_PROVIDER must be/);
+  });
+
+  it('requires OPENAI_API_KEY when LLM_PROVIDER=openai', () => {
+    expect(() =>
+      validateEnvironment({ ...baseEnv, LLM_PROVIDER: 'openai' }),
+    ).toThrow(/OPENAI_API_KEY is required/);
+  });
+
+  it('accepts LLM_PROVIDER=openai when the key is present', () => {
+    expect(() =>
+      validateEnvironment({
+        ...baseEnv,
+        LLM_PROVIDER: 'openai',
+        OPENAI_API_KEY: 'key',
+      }),
+    ).not.toThrow();
+  });
+
+  it('requires CHIOMA_API_URL', () => {
+    expect(() =>
+      validateEnvironment({ ANTHROPIC_API_KEY: 'key' }),
+    ).toThrow(/CHIOMA_API_URL is required/);
+  });
+
+  it('requires REDIS_URL when SESSION_STORE=redis', () => {
+    expect(() =>
+      validateEnvironment({ ...baseEnv, SESSION_STORE: 'redis' }),
+    ).toThrow(/REDIS_URL is required/);
+  });
+
+  it('accepts SESSION_STORE=redis when REDIS_URL is present', () => {
+    expect(() =>
+      validateEnvironment({
+        ...baseEnv,
+        SESSION_STORE: 'redis',
+        REDIS_URL: 'redis://localhost:6379',
+      }),
+    ).not.toThrow();
+  });
+
+  it('collects multiple errors into a single thrown message', () => {
+    expect(() => validateEnvironment({})).toThrow(
+      /ANTHROPIC_API_KEY is required.*CHIOMA_API_URL is required/s,
+    );
+  });
+});
