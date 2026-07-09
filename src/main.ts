@@ -15,4 +15,4 @@ async function bootstrap() {
   console.log(`chioma-agent listening on port ${port}`);
 }
 
-bootstrap();
+void bootstrap();
